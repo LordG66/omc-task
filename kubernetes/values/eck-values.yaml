@@ -1,0 +1,13 @@
+managedNamespaces:
+  - elastic-stack
+  - jenkins
+createClusterScopedResources: true
+refs:
+  # enforceRBAC specifies whether RBAC should be enforced for cross-namespace associations between resources.
+  enforceRBAC: true
+config:
+  # -2: Errors only
+  # -1: Errors and warnings
+  #  0: Errors, warnings, and information
+  #  number greater than 0: Errors, warnings, information, and debug details.
+  logVerbosity: "0"

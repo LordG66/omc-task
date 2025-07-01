@@ -1,0 +1,391 @@
+# Default values for jenkins.
+# This is a YAML-formatted file.
+# Declare name/value pairs to be passed into your templates.
+# name: value
+
+## Overrides for generated resource names
+# See templates/_helpers.tpl
+# -- Override the resource name prefix
+# @default -- `Chart.Name`
+nameOverride:
+# -- Override the full resource names
+# @default -- `jenkins-(release-name)` or `jenkins` if the release-name is `jenkins`
+fullnameOverride:
+# -- Override the deployment namespace
+# @default -- `Release.Namespace`
+namespaceOverride:
+
+# For FQDN resolving of the controller service. Change this value to match your existing configuration.
+# ref: https://github.com/kubernetes/dns/blob/master/docs/specification.md
+# -- Override the cluster name for FQDN resolving
+clusterZone: "cluster.local"
+
+# -- The URL of the Kubernetes API server
+kubernetesURL: "https://kubernetes.default"
+
+# -- The Jenkins credentials to access the Kubernetes API server. For the default cluster it is not needed.
+credentialsId:
+
+# -- Enables rendering of the helm.sh/chart label to the annotations
+renderHelmLabels: true
+
+controller:
+  
+
+  # When enabling LDAP or another non-Jenkins identity source, the built-in admin account will no longer exist.
+  # If you disable the non-Jenkins identity store and instead use the Jenkins internal one,
+  # you should revert controller.admin.username to your preferred admin user:
+  admin:
+    # -- Admin username created as a secret if `controller.admin.createSecret` is true
+    username: "admin"
+    # -- Admin password created as a secret if `controller.admin.createSecret` is true
+    # @default -- <random password>
+    password: omc-admin
+
+    # -- The key in the existing admin secret containing the username
+    userKey: jenkins-admin-user
+    # -- The key in the existing admin secret containing the password
+    passwordKey: jenkins-admin-password
+
+    # The default configuration uses this secret to configure an admin user
+    # If you don't need that user or use a different security realm, then you can disable it
+    # -- Create secret for admin user
+    createSecret: true
+    enableServiceLinks: true
+  serviceEnabled: true
+
+  installPlugins:
+    - kubernetes:4356.vfa_556c21f086
+    - workflow-aggregator:608.v67378e9d3db_1
+    - git:5.7.0
+    - configuration-as-code:1971.vf9280461ea_89
+  initializeOnce: true
+  cloudName: "kubernetes"
+
+  JCasC:
+    # -- Enables default Jenkins configuration via configuration as code plugin
+    defaultConfig: true
+
+    # If true, the init container deletes all the plugin config files and Jenkins Config as Code overwrites any existing configuration
+    # -- Whether Jenkins Config as Code should overwrite any existing configuration
+    overwriteConfiguration: false
+    # -- Remote URLs for configuration files.
+    configUrls: []
+    # - https://acme.org/jenkins.yaml
+    # -- List of Jenkins Config as Code scripts
+    configScripts:
+      log-collector:
+        unclassified:
+          logstashConfiguration:
+            enableGlobally: true
+            enabled: true
+            logstashIndexer:
+                logstash:
+                    host: "localhost"
+                    port: 9200
+    #  welcome-message: |
+    #    jenkins:
+    #      systemMessage: Welcome to our CI\CD server. This Jenkins is configured and managed 'as code'.
+
+    # Allows adding to the top-level security JCasC section. For legacy purposes, by default, the chart includes apiToken configurations
+    # -- Jenkins Config as Code security-section
+    security:
+      apiToken:
+        creationOfLegacyTokenEnabled: false
+        tokenGenerationOnCreationEnabled: false
+        usageStatisticsEnabled: true
+
+    # Ignored if securityRealm is defined in controller.JCasC.configScripts
+    # -- Jenkins Config as Code Security Realm-section
+    securityRealm: |-
+      local:
+        allowsSignup: false
+        enableCaptcha: false
+        users:
+        - id: "${chart-admin-username}"
+          name: "Jenkins Admin"
+          password: "${chart-admin-password}"
+
+    # Ignored if authorizationStrategy is defined in controller.JCasC.configScripts
+    # -- Jenkins Config as Code Authorization Strategy-section
+    authorizationStrategy: |-
+      loggedInUsersCanDoAnything:
+        allowAnonymousRead: false
+
+    # -- Annotations for the JCasC ConfigMap
+    configMapAnnotations: {}
+
+
+  sidecars:
+    configAutoReload:
+      # If enabled: true, Jenkins Configuration as Code will be reloaded on-the-fly without a reboot.
+      # If false or not-specified, JCasC changes will cause a reboot and will only be applied at the subsequent start-up.
+      # Auto-reload uses the http://<jenkins_url>/reload-configuration-as-code endpoint to reapply config when changes to
+      # the configScripts are detected.
+      # -- Enable Jenkins Config as Code auto-reload
+      enabled: true
+      image:
+        # -- Registry for the image that triggers the reload
+        registry: docker.io
+        # -- Repository of the image that triggers the reload
+        repository: kiwigrid/k8s-sidecar
+        # -- Tag for the image that triggers the reload
+        tag: 1.30.5
+      imagePullPolicy: IfNotPresent
+      resources:
+        {}
+        #   limits:
+        #     cpu: 100m
+        #     memory: 100Mi
+        #   requests:
+        #     cpu: 50m
+        #     memory: 50Mi
+      # -- Enables additional volume mounts for the config auto-reload container
+      additionalVolumeMounts:
+        []
+        #   - name: auto-reload-config
+        #     mountPath: /var/config/logger
+        #   - name: auto-reload-logs
+        #     mountPath: /var/log/auto_reload
+      # -- Config auto-reload logging settings
+      logging:
+        # See default settings https://github.com/kiwigrid/k8s-sidecar/blob/master/src/logger.py
+        configuration:
+          # -- Enables custom log config utilizing using the settings below.
+          override: false
+          logLevel: INFO
+          formatter: JSON
+          logToConsole: true
+          logToFile: false
+          maxBytes: 1024
+          backupCount: 3
+
+      # -- The scheme to use when connecting to the Jenkins configuration as code endpoint
+      scheme: http
+      # -- Skip TLS verification when connecting to the Jenkins configuration as code endpoint
+      skipTlsVerify: false
+
+      # -- How many connection-related errors to retry on
+      reqRetryConnect: 10
+      # -- How many seconds to wait before updating config-maps/secrets (sets METHOD=SLEEP on the sidecar)
+      sleepTime:
+
+      # -- Environment variable sources for the Jenkins Config as Code auto-reload container
+      envFrom: []
+      # -- Environment variables for the Jenkins Config as Code auto-reload container
+      env: []
+      #   - name: REQ_TIMEOUT
+      #     value: "30"
+
+      # SSH port value can be set to any unused TCP port. The default, 1044, is a non-standard SSH port that has been chosen at random.
+      # This is only used to reload JCasC config from the sidecar container running in the Jenkins controller pod.
+      # This TCP port will not be open in the pod (unless you specifically configure this), so Jenkins will not be
+      # accessible via SSH from outside the pod. Note if you use non-root pod privileges (runAsUser & fsGroup),
+      # this must be > 1024:
+      sshTcpPort: 1044
+      # folder in the pod that should hold the collected dashboards:
+      folder: "/var/jenkins_home/casc_configs"
+
+      # If specified, the sidecar will search for JCasC config-maps inside this namespace.
+      # Otherwise, the namespace in which the sidecar is running will be used.
+      # It's also possible to specify ALL to search in all namespaces:
+      # searchNamespace:
+      # -- Enable container security context
+      containerSecurityContext:
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+
+    # -- Configures additional sidecar container(s) for the Jenkins controller
+    additionalSidecarContainers: []
+    ## The example below runs the client for https://smee.io as sidecar container next to Jenkins,
+    ## that allows triggering build behind a secure firewall.
+    ## https://jenkins.io/blog/2019/01/07/webhook-firewalls/#triggering-builds-with-webhooks-behind-a-secure-firewall
+    ##
+    ## Note: To use it you should go to https://smee.io/new and update the url to the generated one.
+    # - name: smee
+    #   image: docker.io/twalter/smee-client:1.0.2
+    #   args: ["--port", "{{ .Values.controller.servicePort }}", "--path", "/github-webhook/", "--url", "https://smee.io/new"]
+    #   resources:
+    #     limits:
+    #       cpu: 50m
+    #       memory: 128Mi
+    #     requests:
+    #       cpu: 50m
+    #       memory: 128Mi 
+  ingress:
+    enabled: true
+
+    paths: []
+    apiVersion: "extensions/v1beta1"
+    labels: {}
+    annotations:
+      {}
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    # For Kubernetes >= 1.18 you should specify the ingress-controller via the field ingressClassName
+    # See https://kubernetes.io/blog/2020/04/02/improvements-to-the-ingress-api-in-kubernetes-1.18/#specifying-the-class-of-an-ingress
+    # ingressClassName: nginx
+
+    # Set this path to jenkinsUriPrefix above or use annotations to rewrite path
+    # -- Ingress path
+    path:
+
+    # configures the hostname e.g. jenkins.example.com
+    # -- Ingress hostname
+    hostName: jenkins.omc-task.dev
+    # -- Hostname to serve assets from
+    resourceRootUrl:
+    # -- Ingress TLS configuration
+    tls: []
+    # - secretName: jenkins.cluster.local
+    #   hosts:
+    #     - jenkins.cluster.local
+
+  # often you want to have your controller all locked down and private,
+  # but you still want to get webhooks from your SCM
+  # A secondary ingress will let you expose different urls
+  # with a different configuration
+
+  # Expose Prometheus metrics
+  prometheus:
+    # If enabled, add the prometheus plugin to the list of plugins to install
+    # https://plugins.jenkins.io/prometheus
+
+    # -- Enables prometheus service monitor
+    enabled: false
+    # -- Additional labels to add to the service monitor object
+    serviceMonitorAdditionalLabels: {}
+    # -- Set a custom namespace where to deploy ServiceMonitor resource
+    serviceMonitorNamespace:
+    # -- How often prometheus should scrape metrics
+    scrapeInterval: 60s
+
+    # Defaults to the default endpoint used by the prometheus plugin
+    # -- The endpoint prometheus should get metrics from
+    scrapeEndpoint: /prometheus
+
+    # See here: https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/
+    # The `groups` root object is added by default, add the rule entries
+    # -- Array of prometheus alerting rules
+    alertingrules: []
+    # -- Additional labels to add to the PrometheusRule object
+    alertingRulesAdditionalLabels: {}
+    # -- Set a custom namespace where to deploy PrometheusRule resource
+    prometheusRuleNamespace: ""
+
+    # RelabelConfigs to apply to samples before scraping. Prometheus Operator automatically adds
+    # relabelings for a few standard Kubernetes fields. The original scrape job’s name
+    # is available via the __tmp_prometheus_job_name label.
+    # More info: https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config
+    relabelings: []
+    # MetricRelabelConfigs to apply to samples before ingestion.
+    metricRelabelings: []
+  # -- Can be used to disable rendering controller test resources when using helm template
+  testEnabled: true
+
+
+agent:
+  enabled: true
+  namespace: jenkins-cloud
+  image:
+    registry: ""
+    repository: "jenkins/inbound-agent"
+    tag: "3309.v27b_9314fd1a_4-5"
+  resources:
+    requests:
+      cpu: "512m"
+      memory: "512Mi"
+      # ephemeralStorage:
+    limits:
+      cpu: "512m"
+      memory: "1024Mi"
+  alwaysPullImage: true
+  showRawYaml: false
+  # Useful when configuring agents only with the podTemplates value, since the default podTemplate populated by values mentioned above will be excluded in the rendered template.
+  # -- Disable the default Jenkins Agent configuration
+  disableDefaultAgent: false
+
+  # Below is the implementation of custom pod templates for the default configured kubernetes cloud.
+  # Add a key under podTemplates for each pod template. Each key (prior to | character) is just a label, and can be any value.
+  # Keys are only used to give the pod template a meaningful name. The only restriction is they may only contain RFC 1123 \ DNS label
+  # characters: lowercase letters, numbers, and hyphens. Each pod template can contain multiple containers.
+  # For this pod templates configuration to be loaded, the following values must be set:
+  # controller.JCasC.defaultConfig: true
+  # Best reference is https://<jenkins_url>/configuration-as-code/reference#Cloud-kubernetes. The example below creates a python pod template.
+  # -- Configures extra pod templates for the default kubernetes cloud
+  podTemplates: {}
+  #  python: |
+  #    - name: python
+  #      label: jenkins-python
+  #      serviceAccount: jenkins
+  #      containers:
+  #        - name: python
+  #          image: python:3
+  #          command: "/bin/sh -c"
+  #          args: "cat"
+  #          ttyEnabled: true
+  #          privileged: true
+  #          resourceRequestCpu: "400m"
+  #          resourceRequestMemory: "512Mi"
+  #          resourceLimitCpu: "1"
+  #          resourceLimitMemory: "1024Mi"
+
+# Inherits all values from `agent` so you only need to specify values which differ
+# -- Configure additional
+additionalAgents: {}
+#  maven:
+#    podName: maven
+#    customJenkinsLabels: maven
+#    # An example of overriding the jnlp container
+#    # sideContainerName: jnlp
+#    image:
+#      repository: jenkins/jnlp-agent-maven
+#      tag: latest
+#  python:
+#    podName: python
+#    customJenkinsLabels: python
+#    sideContainerName: python
+#    image:
+#      repository: python
+#      tag: "3"
+#    command: "/bin/sh -c"
+#    args: "cat"
+#    TTYEnabled: true
+persistence:
+  # -- Enable the use of a Jenkins PVC
+  enabled: true
+  accessMode: "ReadWriteOnce"
+  size: "8Gi"
+
+
+networkPolicy:
+  # -- Enable the creation of NetworkPolicy resources
+  enabled: false
+
+  # For Kubernetes v1.4, v1.5 and v1.6, use 'extensions/v1beta1'
+  # For Kubernetes v1.7, use 'networking.k8s.io/v1'
+  # -- NetworkPolicy ApiVersion
+  apiVersion: networking.k8s.io/v1
+  # You can allow agents to connect from both within the cluster (from within specific/all namespaces) AND/OR from a given external IP range
+  internalAgents:
+    # -- Allow internal agents (from the same cluster) to connect to controller. Agent pods will be filtered based on PodLabels
+    allowed: true
+    # -- A map of labels (keys/values) that agent pods must have to be able to connect to controller
+    podLabels: {}
+    # -- A map of labels (keys/values) that agents namespaces must have to be able to connect to controller
+    namespaceLabels:
+      {}
+      # project: myproject
+  externalAgents:
+    # -- The IP range from which external agents are allowed to connect to controller, i.e., 172.17.0.0/16
+    ipCIDR:
+    # -- A list of IP sub-ranges to be excluded from the allowlisted IP range
+    except:
+      []
+      # - 172.17.1.0/24
+
+serviceAccountAgent:
+  # -- Configures if an agent ServiceAccount should be created
+  create: true
+
+

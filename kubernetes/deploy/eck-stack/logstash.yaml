@@ -1,0 +1,31 @@
+apiVersion: logstash.k8s.elastic.co/v1alpha1
+kind: Logstash
+metadata:
+  name: logstash
+  namespace: elastic-stack
+spec:
+  count: 1
+  version: 8.9.0
+  config:
+    pipeline.batch.size: 125
+  elasticsearchRefs:
+    - clusterName: default
+      name: elasticsearch
+  pipelines:
+    - pipeline.id: main
+      pipeline.workers: 2
+      config.string: |
+        input { 
+          exec { 
+            command => 'uptime' 
+            interval => 1000 
+          } 
+        } 
+        output {
+          elasticsearch {
+            hosts => [ "${ECK_ES_HOSTS}" ]
+            user => "${ECK_ES_USER}"
+            password => "${ECK_ES_PASSWORD}"
+            cacert => "${ECK_ES_SSL_CERTIFICATE_AUTHORITY}"
+          }
+        }
