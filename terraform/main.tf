@@ -1,6 +1,7 @@
-resource "proxmox_vm_qemu" "k8s-m1" {
-  vmid        = 203020
-  name        = "k8s-m1"
+resource "proxmox_vm_qemu" "k8s_masters" {
+  count       = var.master_count
+  vmid        = 203000 + count.index
+  name        = "k8s-m${count.index + 1}"
   target_node = var.node
   agent       = 1
   cores       = 4
@@ -15,7 +16,7 @@ resource "proxmox_vm_qemu" "k8s-m1" {
   cicustom   = "vendor=local:snippets/qemu-guest-agent.yml"
   ciupgrade  = true
   nameserver = "1.1.1.1 8.8.8.8"
-  ipconfig0  = "ip=203.0.113.20/24,gw=203.0.113.254"
+  ipconfig0  = "ip=dhcp"
   skip_ipv6  = true
   ciuser     = var.ciuser
   cipassword = var.cipassword
@@ -51,9 +52,10 @@ resource "proxmox_vm_qemu" "k8s-m1" {
   }
 }
 
-resource "proxmox_vm_qemu" "k8s-w1" {
-  vmid        = 203021
-  name        = "k8s-w1"
+resource "proxmox_vm_qemu" "k8s_workers" {
+  count       = var.worker_count
+  vmid        = 203100 + count.index
+  name        = "k8s-w${count.index + 1}"
   target_node = var.node
   agent       = 1
   cores       = 4
@@ -68,7 +70,7 @@ resource "proxmox_vm_qemu" "k8s-w1" {
   cicustom   = "vendor=local:snippets/qemu-guest-agent.yml"
   ciupgrade  = true
   nameserver = "1.1.1.1 8.8.8.8"
-  ipconfig0  = "ip=203.0.113.21/24,gw=203.0.113.254"
+  ipconfig0  = "ip=dhcp"
   skip_ipv6  = true
   ciuser     = var.ciuser
   cipassword = var.cipassword

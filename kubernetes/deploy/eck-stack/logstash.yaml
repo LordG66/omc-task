@@ -5,21 +5,29 @@ metadata:
   namespace: elastic-stack
 spec:
   count: 1
-  version: 8.9.0
+  version: 8.12.0
   config:
     pipeline.batch.size: 125
   elasticsearchRefs:
-    - clusterName: default
+    - clusterName: eck
       name: elasticsearch
+  services:
+    - name: jenkins-tcp
+      service:
+        spec:
+          ports:
+            - name: tcp
+              port: 9601
+              targetPort: 9601
   pipelines:
     - pipeline.id: main
       pipeline.workers: 2
       config.string: |
         input { 
-          exec { 
-            command => 'uptime' 
-            interval => 1000 
-          } 
+          tcp {
+            port => 9601
+            codec => json_lines
+          }
         } 
         output {
           elasticsearch {

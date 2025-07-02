@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jenkins-config
+  namespace: jenkins
+data:
+  curl.xml: |
+    <?xml version='1.1' encoding='UTF-8'?>
+    <flow-definition plugin="workflow-job@1540.v295eccc9778f">
+      <actions/>
+      <description></description>
+      <keepDependencies>false</keepDependencies>
+      <properties/>
+      <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@4150.ve20ca_b_a_a_2815">
+        <script>podTemplate(
+        containers: [
+            containerTemplate(
+                name:  &apos;gcc-make&apos;,                 
+                image: &apos;buildpack-deps:bookworm&apos;,  
+                command: &apos;cat&apos;,                    
+                ttyEnabled: true
+            )
+        ]
+    ) {
+
+        node(POD_LABEL) {
+
+            stage(&apos;Setup Build Environment&apos;) {
+                  container(&apos;gcc-make&apos;) {
+                    sh &apos;&apos;&apos;
+                        apt-get update
+                        apt-get install -y \
+                          git build-essential autoconf automake libtool pkg-config cmake m4 perl roffit \
+                          libssl-dev libpsl-dev libidn2-dev libnghttp2-dev libbrotli-dev libzstd-dev zlib1g-dev \
+                          libssh2-1-dev libldap2-dev libsasl2-dev libc-ares2 libc-ares-dev locales
+                        locale-gen en_US.UTF-8
+                        export LANG=en_US.UTF-8
+                        export LC_ALL=en_US.UTF-8
+                    &apos;&apos;&apos;
+                  }
+                }
+            stage(&apos;Clone cURL&apos;) {
+                container(&apos;gcc-make&apos;) {
+                    sh &apos;&apos;&apos;
+                        echo &quot;Cloning cURL source…&quot;
+                        git clone --depth=1 https://github.com/curl/curl.git
+                    &apos;&apos;&apos;
+                }
+            }
+
+            stage(&apos;Build cURL&apos;) {
+                container(&apos;gcc-make&apos;) {
+                    dir(&apos;curl&apos;) {
+                        sh &apos;&apos;&apos;
+                            echo &quot;Generating configure script&quot;
+                            autoreconf -fi
+                            echo &quot;Configuring…&quot;
+                            ./configure --with-openssl
+                            echo &quot;🏗️  Compiling…&quot;
+                            make -j$(nproc)
+                        &apos;&apos;&apos;
+                    }
+                }
+            }
+
+            stage(&apos;Test cURL&apos;) {
+                container(&apos;gcc-make&apos;) {
+                    dir(&apos;curl&apos;) {
+                        sh &apos;&apos;&apos;
+                            echo &quot;unning cURL test-suite&quot;
+                            TFLAGS=&apos;!1560&apos; make test
+                        &apos;&apos;&apos;
+                    }
+                }
+            }
+
+            stage(&apos;Archive Artifacts&apos;) {
+                container(&apos;gcc-make&apos;) {
+                    sh &apos;&apos;&apos;
+                        echo &quot;Collecting build outputs&quot;
+                        mkdir -p curl-artifacts
+                        cp -r curl/src curl/include curl/lib curl-artifacts/
+                    &apos;&apos;&apos;
+                }
+                archiveArtifacts artifacts: &apos;curl-artifacts/**&apos;, fingerprint: true
+            }
+        }
+    }</script>
+        <sandbox>true</sandbox>
+      </definition>
+      <triggers/>
+      <disabled>false</disabled>
+    </flow-definition>

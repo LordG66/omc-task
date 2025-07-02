@@ -28,3 +28,14 @@ variable "cipassword" {
 variable ci_ssh_keys {
     default = "sssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBMXzg/DxT8S9pXRWpXbQHDjCg/zHO/1YvHLLDKpNjUx gabit@Gabis-MacBook-Pro.local"
 }
+
+variable "master_count" {
+    default = 1
+    type = number 
+}
+
+variable "worker_count" {
+    default = 1
+    type = number 
+
+}

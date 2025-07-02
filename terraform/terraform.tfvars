@@ -1,0 +1,11 @@
+proxmox_api_url   = "https://10.100.0.29:8006/api2/json"
+proxmox_user      = "terraform@pve"
+proxmox_password  = "4w68crJeLTYeGnW"
+node              = "proxds01"
+template          = "ubuntu-24.04-ci-template"
+vm_storage        = "local-ssd"
+ciuser            = "root"
+cipassword        = "password"
+ci_ssh_keys       = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBMXzg/DxT8S9pXRWpXbQHDjCg/zHO/1YvHLLDKpNjUx gabit@Gabis-MacBook-Pro.local"
+master_count      = 1
+worker_count      = 1

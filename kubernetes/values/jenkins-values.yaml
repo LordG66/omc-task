@@ -59,8 +59,24 @@ controller:
     - workflow-aggregator:608.v67378e9d3db_1
     - git:5.7.0
     - configuration-as-code:1971.vf9280461ea_89
+    - logstash:2.5.0218.v0a_ff8fefc12b_
   initializeOnce: true
   cloudName: "kubernetes"
+
+  customInitContainers:
+  - name: copy-jobs
+    image: busybox
+    command:
+      - sh
+      - -c
+      - |
+        mkdir -p /var/jenkins_home/jobs/curl && \
+        cp /config/curl.xml /var/jenkins_home/jobs/curl/config.xml
+    volumeMounts:
+      - name: config-volume
+        mountPath: /config
+      - name: jenkins-home
+        mountPath: /var/jenkins_home
 
   JCasC:
     # -- Enables default Jenkins configuration via configuration as code plugin
@@ -74,15 +90,15 @@ controller:
     # - https://acme.org/jenkins.yaml
     # -- List of Jenkins Config as Code scripts
     configScripts:
-      log-collector:
+      log-forwarder: |
         unclassified:
           logstashConfiguration:
             enableGlobally: true
             enabled: true
             logstashIndexer:
                 logstash:
-                    host: "localhost"
-                    port: 9200
+                    host: "logstash-ls-api.elastic-stack.svc.cluster.local"
+                    port: 9601
     #  welcome-message: |
     #    jenkins:
     #      systemMessage: Welcome to our CI\CD server. This Jenkins is configured and managed 'as code'.
@@ -356,6 +372,10 @@ persistence:
   enabled: true
   accessMode: "ReadWriteOnce"
   size: "8Gi"
+  volumes:
+  - name: config-volume
+    configMap:
+      name: jenkins-config
 
 
 networkPolicy:

@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-jenkins-to-logstash
+  namespace: elastic-stack
+spec:
+  podSelector:
+    matchLabels:
+      logstash.k8s.elastic.co/name: logstash
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: jenkins
+  policyTypes:
+    - Ingress
