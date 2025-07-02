@@ -1,11 +1,11 @@
 variable "proxmox_api_url" {
-    default = "https://10.100.0.29:8006/api2/json"
+    default = "https://prox-ip:8006/api2/json"
 }
 variable "proxmox_user" {
     default = "terraform@pve"
 }
 variable "proxmox_password" {
-    default = "4w68crJeLTYeGnW"
+    default = "password"
 }
 variable "node" {
   default = "proxds01"
