@@ -36,7 +36,6 @@ resource "proxmox_vm_qemu" "k8s_masters" {
       }
     }
     ide {
-      # Some images require a cloud-init disk on the IDE controller, others on the SCSI or SATA controller
       ide1 {
         cloudinit {
           storage = var.vm_storage
@@ -90,7 +89,6 @@ resource "proxmox_vm_qemu" "k8s_workers" {
       }
     }
     ide {
-      # Some images require a cloud-init disk on the IDE controller, others on the SCSI or SATA controller
       ide1 {
         cloudinit {
           storage = var.vm_storage
